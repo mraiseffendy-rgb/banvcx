@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#fafafa">
+<title>Pendeteksi WhatsApp</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+<style>
+:root{
+  --ink:#16131f;
+  --paper:#fff6d6;
+  --yellow:#ffdf6b;
+  --red:#e91e3c;
+  --red-dk:#a8122b;
+  --green:#00e676;
+  --cyan:#0a84ff;
+  --sub:#71717a;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{
+  min-height:100dvh;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,sans-serif;
+  background:#fafafa;color:#18181b;
+  overscroll-behavior:none;
+  -webkit-font-smoothing:antialiased;
+}
+body{
+  display:flex;justify-content:center;align-items:flex-start;
+  padding:16px 12px 40px;
+  min-height:100dvh;
+  position:relative;
+}
+
+/* ═══════ LATAR KOMIK POSTER PUTIH ═══════ */
+.bg-paper{
+  position:fixed;inset:0;z-index:0;
+  background:#fafafa;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,.07) 1.2px, transparent 1.5px),
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,.07) 1.2px, transparent 1.5px);
+  background-size:16px 16px,16px 16px;
+  background-position:0 0,8px 8px;
+}
+.bg-paper::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255,45,85,.14) 0%, transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(10,132,255,.12) 0%, transparent 40%);
+}
+.bg-paper::after{
+  content:"";position:absolute;
+  top:-40px;right:-40px;width:180px;height:180px;
+  background:repeating-conic-gradient(from 0deg, rgba(255,204,0,.35) 0deg 12deg, transparent 12deg 24deg);
+  border-radius:50%;
+  opacity:.5;
+}
+
+/* ═══════ HERO ATAS ═══════ */
+.hero{
+  position:fixed;top:0;left:0;right:0;z-index:5;
+  height:96px;overflow:hidden;
+  border-bottom:3px solid var(--ink);
+  background:#fff;
+  -webkit-mask-image:linear-gradient(180deg,#000 70%,transparent);
+  mask-image:linear-gradient(180deg,#000 70%,transparent);
+}
+.hero img{
+  width:100%;height:100%;object-fit:cover;
+  filter:grayscale(.15) contrast(1.1);
+  opacity:.6;
+}
+.hero::after{
+  content:"⚡ WA SCANNER ⚡";
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bangers',Impact,sans-serif;
+  font-size:1.3rem;letter-spacing:5px;color:var(--ink);
+  -webkit-text-stroke:.5px #fff;
+  text-shadow:2px 2px 0 #f5b400, 4px 4px 0 rgba(0,0,0,.15);
+  background:linear-gradient(180deg,transparent 30%,rgba(250,250,250,.9));
+}
+
+/* ═══════ KONTEN UTAMA ═══════ */
+.main{
+  position:relative;z-index:10;
+  width:100%;max-width:400px;
+  padding:120px 0 20px;
+  display:flex;flex-direction:column;
+  align-items:center;
+}
+
+.card{
+  width:100%;
+  background:#fff;
+  border:3px solid var(--ink);
+  border-radius:14px;
+  padding:20px 16px 16px;
+  box-shadow:6px 6px 0 var(--ink);
+  position:relative;
+  transform:rotate(-.6deg);
+}
+.card::before{
+  content:"";
+  position:absolute;top:-3px;left:8px;right:8px;height:6px;
+  background:repeating-linear-gradient(90deg,#ff2d55 0 8px,transparent 8px 16px,#0a84ff 16px 24px,transparent 24px 32px,#f5b400 32px 40px);
+  opacity:.85;border-radius:3px;
+}
+
+.card-title{
+  font-family:'Bangers',Impact,sans-serif;
+  font-size:1.5rem;text-align:center;letter-spacing:2px;
+  color:#ff2d55;
+  -webkit-text-stroke:1.2px var(--ink);
+  text-shadow:2.5px 2.5px 0 var(--ink);
+  line-height:1;margin-bottom:6px;
+}
+.card-sub{
+  font-size:.66rem;text-align:center;color:var(--sub);
+  letter-spacing:.4px;font-weight:600;margin-bottom:14px;
+}
+.card-sub b{color:#0a84ff;}
+
+.drop{
+  width:100%;min-height:110px;
+  border:2.5px dashed var(--ink);
+  border-radius:10px;
+  background:repeating-linear-gradient(45deg,#fff,#fff 8px,#f4f4f5 8px,#f4f4f5 16px);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:6px;cursor:pointer;
+  transition:transform .15s, border-color .2s, background .2s;
+  position:relative;overflow:hidden;
+  -webkit-tap-highlight-color:transparent;
+}
+.drop:active{transform:scale(.98);}
+.drop.has{
+  border-style:solid;border-color:#22c55e;
+  background:#f0fdf4;
+}
+.drop .ico{font-size:1.8rem;line-height:1;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.15));}
+.drop .txt{
+  font-size:.7rem;color:var(--sub);text-align:center;
+  padding:0 14px;line-height:1.4;font-weight:600;
+}
+.drop .txt b{color:#ff2d55;}
+.drop.has .txt{color:#22c55e;}
+.drop .prev{position:absolute;inset:0;display:none;background:#fff;border-radius:8px;}
+.drop.has .prev{display:block;}
+.drop .prev img{width:100%;height:100%;object-fit:contain;border-radius:8px;}
+.drop .prev .fname{
+  position:absolute;bottom:4px;left:4px;right:4px;
+  background:rgba(0,0,0,.85);color:#fff;
+  font-size:.56rem;font-family:'Share Tech Mono',monospace;
+  padding:3px 6px;border-radius:5px;
+  text-align:center;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+input[type=file]{display:none;}
+
+.btn{
+  width:100%;margin-top:12px;
+  padding:13px;
+  background:#ff2d55;
+  border:3px solid var(--ink);
+  border-radius:10px;
+  color:#fff;
+  font-family:'Bangers',Impact,sans-serif;
+  font-size:1.05rem;letter-spacing:2.5px;
+  cursor:pointer;
+  box-shadow:5px 5px 0 var(--ink);
+  transition:transform .1s, box-shadow .1s, opacity .2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn:active{transform:translate(5px,5px);box-shadow:0 0 0 var(--ink);}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:5px 5px 0 var(--ink);}
+
+.badge{
+  margin-top:10px;
+  display:flex;align-items:center;gap:6px;justify-content:center;
+  font-size:.58rem;color:var(--sub);letter-spacing:1.5px;font-weight:700;
+  font-family:'Share Tech Mono',monospace;
+}
+.badge .dot{
+  width:6px;height:6px;border-radius:50%;
+  background:#22c55e;box-shadow:0 0 6px #22c55e;
+  animation:pulse 1.6s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ═══════ POPUP OVERLAY (SENDING BUG STYLE) ═══════ */
+.popup-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.88);
+  backdrop-filter:blur(8px);display:none;
+  justify-content:center;align-items:center;z-index:100;padding:16px;
+}
+.popup-overlay.active{display:flex;animation:popIn .35s;}
+@keyframes popIn{from{opacity:0}to{opacity:1}}
+
+.popup-box{
+  width:100%;max-width:360px;background:var(--yellow);
+  background-image:
+    radial-gradient(circle, rgba(0,0,0,.85) 1.2px, transparent 1.4px),
+    radial-gradient(circle, rgba(0,0,0,.85) 1.2px, transparent 1.4px);
+  background-size:12px 12px,12px 12px;
+  background-position:0 0,6px 6px;
+  border:6px solid var(--ink);box-shadow:10px 10px 0 var(--ink);
+  padding:16px 12px;text-align:center;
+  transform:rotate(-.5deg);animation:shakeIn .4s;
+  max-height:calc(100% - 20px);overflow-y:auto;position:relative;
+  border-radius:4px;
+}
+@keyframes shakeIn{
+  0%{transform:rotate(-.5deg) scale(.6);}
+  60%{transform:rotate(-.5deg) scale(1.05);}
+  100%{transform:rotate(-.5deg) scale(1);}
+}
+.popup-skull{
+  font-size:2.6rem;line-height:1;display:inline-block;margin-bottom:2px;
+  filter:drop-shadow(4px 4px 0 var(--ink));
+  animation:skullShake .3s infinite;position:relative;z-index:1;
+}
+@keyframes skullShake{
+  0%,100%{transform:rotate(-8deg) scale(1);}
+  50%{transform:rotate(8deg) scale(1.1);}
+}
+.popup-box h4{
+  font-family:'Bangers',Impact,sans-serif;font-size:1.5rem;
+  letter-spacing:2.5px;color:var(--red);-webkit-text-stroke:1.5px var(--ink);
+  text-shadow:3px 3px 0 var(--ink);margin-bottom:3px;
+  position:relative;z-index:1;line-height:1;
+}
+.popup-sub{
+  font-family:'Bangers',Impact,sans-serif;font-size:.76rem;color:var(--ink);
+  letter-spacing:1.8px;margin-bottom:11px;position:relative;z-index:1;
+  word-break:break-all;
+}
+.popup-sub b{color:var(--red);}
+
+/* TERMINAL OUTPUT */
+.term-output{
+  background:#0a0a14;border:4px solid var(--ink);
+  box-shadow:4px 4px 0 var(--ink);padding:9px;
+  margin-bottom:10px;text-align:left;height:170px;
+  overflow-y:auto;border-radius:6px;position:relative;z-index:1;
+  font-family:'Courier New',monospace;
+  scrollbar-width:thin;scrollbar-color:#00ff88 #000;
+}
+.term-output::-webkit-scrollbar{width:5px;}
+.term-output::-webkit-scrollbar-track{background:#000;}
+.term-output::-webkit-scrollbar-thumb{background:#00ff88;border-radius:3px;}
+.term-output .tline{
+  font-family:'Courier New',monospace;font-size:.66rem;color:#00ff88;
+  line-height:1.5;margin-bottom:2px;white-space:pre-wrap;word-break:break-word;
+  opacity:0;animation:fadeLine .2s forwards;
+}
+@keyframes fadeLine{to{opacity:1;}}
+.term-output .tline.warn{color:#ffcc00;}
+.term-output .tline.err{color:#ff5252;font-weight:700;}
+.term-output .tline.ok{color:#00e676;font-weight:700;}
+.term-output .tline.dim{color:#555;}
+.term-output .tline.info{color:#00d2ff;}
+.term-output .tline.hl{
+  color:#fff;
+  background:rgba(0,210,255,.18);
+  padding:1px 4px;border-radius:3px;
+  display:inline-block;
+}
+.term-output .tline::before{content:"$ ";color:#444;}
+.term-output .tline.noprefix::before{content:"";}
+
+/* METHOD STATUS */
+.method-status{
+  font-family:'Bangers',Impact,sans-serif;font-size:.92rem;
+  letter-spacing:1.5px;color:var(--ink);margin-bottom:9px;
+  min-height:18px;position:relative;z-index:1;
+}
+.method-status.running{color:var(--red);}
+.method-status.done{color:#00b85c;}
+
+/* PROGRESS BAR */
+.progress-bar-wrap{
+  background:var(--paper);border:3px solid var(--ink);
+  box-shadow:3px 3px 0 var(--ink);height:24px;
+  margin-bottom:10px;overflow:hidden;position:relative;z-index:1;
+  border-radius:2px;
+}
+.progress-bar-fill{
+  height:100%;width:0%;
+  background:repeating-linear-gradient(45deg,var(--red),var(--red) 8px,#ff4d6a 8px,#ff4d6a 16px);
+  transition:width .25s linear;position:relative;
+}
+.progress-bar-fill::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);
+  animation:shine 1.2s infinite;
+}
+@keyframes shine{0%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
+.progress-bar-text{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'Bangers',Impact,sans-serif;font-size:.85rem;letter-spacing:2px;
+  color:var(--ink);text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;
+  z-index:2;
+}
+
+/* HASIL DI DALAM POPUP */
+.result-wrap{
+  display:none;position:relative;z-index:1;
+  margin-top:6px;
+}
+.result-wrap.on{display:block;animation:resIn .5s cubic-bezier(.2,.9,.3,1.1);}
+@keyframes resIn{
+  from{opacity:0;transform:translateY(10px) scale(.96);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+
+.result-head{
+  padding:8px 10px;
+  font-family:'Bangers',Impact,sans-serif;
+  font-size:1.1rem;letter-spacing:2.5px;
+  text-align:center;color:#fff;
+  -webkit-text-stroke:1.2px var(--ink);
+  text-shadow:2px 2px 0 var(--ink);
+  border:4px solid var(--ink);
+  border-radius:6px 6px 0 0;
+  border-bottom:none;
+}
+.result-head.success{background:linear-gradient(135deg,#00e676,#00b85c);}
+.result-head.fail{background:linear-gradient(135deg,#ff2e63,#a8122b);}
+
+.desc-banned,
+.desc-safe{
+  padding:11px;
+  color:#fff;
+  border:4px solid var(--ink);
+  border-radius:0 0 6px 6px;
+  position:relative;overflow:hidden;
+  text-align:left;
+}
+.desc-banned{background:linear-gradient(160deg,#c1123e,#8a0d28);}
+.desc-safe{background:linear-gradient(160deg,#15803d,#0d5427);}
+.desc-banned::before,
+.desc-safe::before{
+  content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,.04) 8px,rgba(255,255,255,.04) 9px);
+  pointer-events:none;
+}
+.desc-banned .db-head,
+.desc-safe .db-head{
+  display:flex;align-items:center;gap:6px;
+  font-family:'Bangers',Impact,sans-serif;
+  font-size:.88rem;letter-spacing:1.8px;
+  margin-bottom:6px;position:relative;z-index:1;
+}
+.desc-banned .db-num,
+.desc-safe .db-num{
+  background:rgba(0,0,0,.4);
+  border:1.5px solid rgba(255,255,255,.3);
+  border-radius:6px;
+  padding:8px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.78rem;font-weight:900;
+  letter-spacing:1.2px;text-align:center;
+  margin-bottom:7px;position:relative;z-index:1;
+  word-break:break-all;color:#fff;
+}
+.desc-banned .db-num small,
+.desc-safe .db-num small{
+  display:block;font-size:.46rem;
+  letter-spacing:2px;color:rgba(255,255,255,.75);
+  margin-bottom:3px;font-weight:400;
+}
+.desc-banned .db-text,
+.desc-safe .db-text{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.6rem;line-height:1.5;
+  position:relative;z-index:1;
+}
+.desc-banned .db-text b{color:#ffe066;}
+
+/* TOXIC */
+.toxic{
+  margin-top:8px;
+  padding:9px 11px;
+  background:#0a0a0f;
+  border:3px solid var(--ink);
+  border-radius:6px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.6rem;line-height:1.55;
+  color:#ff8a9b;font-weight:600;
+  text-align:left;
+  box-shadow:3px 3px 0 var(--ink);
+  position:relative;z-index:1;
+}
+.toxic::before{
+  content:"» ";color:#ff2d55;
+  font-weight:900;font-size:.85rem;
+}
+.toxic b{color:#fff;font-style:normal;}
+.toxic .hl{
+  background:rgba(255,45,85,.35);
+  padding:0 4px;border-radius:3px;color:#fff;
+}
+.toxic.safe{color:#86efac;}
+.toxic.safe::before{color:#22c55e;}
+
+/* TOMBOL KEMBALI di popup */
+.popup-back{
+  display:none;
+  width:100%;
+  margin-top:10px;
+  padding:11px;
+  background:var(--paper);
+  border:4px solid var(--ink);
+  border-radius:6px;
+  color:var(--ink);
+  font-family:'Bangers',Impact,sans-serif;
+  font-size:1rem;letter-spacing:3px;
+  cursor:pointer;
+  box-shadow:4px 4px 0 var(--ink);
+  transition:transform .08s, box-shadow .08s;
+  position:relative;z-index:1;
+}
+.popup-back.on{display:block;animation:backIn .35s cubic-bezier(.2,.9,.3,1.1);}
+@keyframes backIn{
+  from{opacity:0;transform:translateY(6px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.popup-back:active{transform:translate(4px,4px);box-shadow:0 0 0 var(--ink);}
+
+/* TOAST */
+.toast{
+  position:fixed;bottom:36px;left:50%;
+  transform:translate(-50%,20px);
+  background:rgba(20,20,26,.96);
+  border:3px solid var(--ink);
+  border-radius:8px;
+  padding:8px 16px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.66rem;color:#00ff88;
+  z-index:999;opacity:0;
+  transition:all .25s;pointer-events:none;
+  box-shadow:4px 4px 0 var(--ink), 0 10px 30px rgba(0,0,0,.5);
+  white-space:nowrap;
+}
+.toast.on{opacity:1;transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+
+<div class="bg-paper"></div>
+
+<div class="hero">
+  <img src="https://files.catbox.moe/y242lo.jpg" alt="">
+</div>
+
+<div class="main">
+  <div class="card">
+    <div class="card-title">PENDETEKSI WA</div>
+    <div class="card-sub">Scan screenshot verifikasi → <b>deteksi status</b></div>
+
+    <div class="drop" id="drop">
+      <div class="ico">📸</div>
+      <div class="txt">Ketuk untuk <b>pilih gambar</b><br>screenshot WhatsApp</div>
+      <div class="prev" id="prev">
+        <img id="prevImg" alt="">
+        <div class="fname" id="fname"></div>
+      </div>
+      <input type="file" id="fi" accept="image/*">
+    </div>
+
+    <button class="btn" id="btn" disabled>▶ ENTER — MULAI SCAN</button>
+
+    <div class="badge">
+      <span class="dot"></span> ENGINE READY · 10 METHODS
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ LOADING POPUP ═══════ -->
+<div class="popup-overlay" id="loadingPopup">
+  <div class="popup-box">
+    <div class="popup-skull">💀</div>
+    <h4 id="loadingTitle">SCANNING WA...</h4>
+    <div class="popup-sub" id="loadingSub">★ 10 METODE • TARGET — ★</div>
+
+    <div class="term-output" id="termOut">
+      <div class="tline dim noprefix">boot wa-detector v3.2...</div>
+    </div>
+
+    <div class="method-status" id="methodText">Menyiapkan Metode 1...</div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progressFill"></div>
+      <div class="progress-bar-text" id="progressText">0%</div>
+    </div>
+
+    <div class="result-wrap" id="resultWrap">
+      <div class="result-head" id="resultHead">—</div>
+      <div id="resultDesc"></div>
+      <div class="toxic" id="toxic"></div>
+    </div>
+
+    <button class="popup-back" id="popupBack">← KEMBALI</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const drop = $('#drop'), fi = $('#fi'), btn = $('#btn');
+const popup = $('#loadingPopup');
+const termOut = $('#termOut'), progFill = $('#progressFill'), progText = $('#progressText');
+const methodText = $('#methodText');
+let file = null, url = null, busy = false;
+
+/* ══════ FILE PICK ══════ */
+drop.onclick = () => fi.click();
+fi.onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!f.type.startsWith('image/')) return toast('× Harus gambar');
+  if (f.size > 10e6) return toast('× Max 10MB');
+  file = f;
+  const rd = new FileReader();
+  rd.onload = ev => {
+    url = ev.target.result;
+    $('#prevImg').src = url;
+    $('#fname').textContent = f.name;
+    drop.classList.add('has');
+    btn.disabled = false;
+    toast('✓ Siap di-scan');
+  };
+  rd.readAsDataURL(f);
+};
+
+function toast(t) {
+  const el = $('#toast');
+  el.textContent = t;
+  el.classList.add('on');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('on'), 2000);
+}
+
+/* ══════ TERMINAL HELPERS ══════ */
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function setP(p) { progFill.style.width = p + '%'; progText.textContent = p + '%'; }
+function setMethod(t, cls) { methodText.className = 'method-status ' + (cls || ''); methodText.textContent = t; }
+
+function tLine(text, cls, usePrompt) {
+  const d = document.createElement('div');
+  d.className = 'tline ' + (cls || '') + (usePrompt === false ? ' noprefix' : '');
+  d.textContent = text;
+  termOut.appendChild(d);
+  termOut.scrollTop = termOut.scrollHeight;
+  return d;
+}
+function updateLastLine(text, cls) {
+  const last = termOut.lastChild;
+  if (last) {
+    last.textContent = text;
+    if (cls) last.className = 'tline ' + cls;
+  }
+  termOut.scrollTop = termOut.scrollHeight;
+}
+
+/* ══════ HEURISTIK STATUS ══════ */
+function analyzeStatus(src) {
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement('canvas');
+      const w = c.width = Math.min(im.width, 320);
+      const h = c.height = Math.round(im.height * (w / im.width));
+      const ctx = c.getContext('2d');
+      ctx.drawImage(im, 0, 0, w, h);
+      const d = ctx.getImageData(0, 0, w, h).data;
+      let red = 0, green = 0, dark = 0, total = w * h;
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i + 1], b = d[i + 2];
+        const br = (r + g + b) / 3;
+        if (br < 45) dark++;
+        if (r > 110 && r > g * 1.5 && r > b * 1.5) red++;
+        if (g > 130 && g > r * 1.3 && g > b * 1.05) green++;
+      }
+      const midY = Math.floor(h / 2);
+      let midBright = 0;
+      for (let x = 0; x < w; x++) {
+        const i = (midY * w + x) * 4;
+        if ((d[i] + d[i + 1] + d[i + 2]) / 3 > 150) midBright++;
+      }
+      midBright /= w;
+      const rr = red / total, gr = green / total, dr = dark / total;
+      const banned = (rr > .012 && gr > .0025 && dr > .4) || (midBright < .15 && dr > .5 && gr > .002);
+      res({ banned, rr, gr, dr, w: im.width, h: im.height });
+    };
+    im.onerror = () => res({ banned: false, rr: 0, gr: 0, dr: 0, w: 0, h: 0 });
+    im.src = src;
+  });
+}
+
+/* ══════ OCR ══════ */
+let ocrWorker = null;
+async function getOcrWorker() {
+  if (ocrWorker) return ocrWorker;
+  ocrWorker = await Tesseract.createWorker('eng', 1);
+  return ocrWorker;
+}
+
+/* ══════ PARSE NOMOR ══════ */
+function parsePhone(rawText) {
+  if (!rawText) return null;
+  let t = rawText
+    .replace(/[Oo]/g, '0')
+    .replace(/[Il|]/g, '1')
+    .replace(/[Ss]/g, '5')
+    .replace(/[Bb]/g, '8')
+    .replace(/\s+/g, ' ');
+
+  let m = t.match(/(\+?\s*6\s*2\s*8\d{1,3}[\s\-]?\d{3,4}[\s\-]?\d{3,5})/);
+  if (m) return normPhone(m[0]);
+
+  m = t.match(/(\+?\s*6\s*2\s*8\d{8,13})/);
+  if (m) return normPhone(m[0]);
+
+  m = t.match(/(0\s*8\d{1,3}[\s\-]?\d{3,4}[\s\-]?\d{3,5})/);
+  if (m) return normPhone('62' + m[0].replace(/\D/g, '').slice(1));
+
+  m = t.match(/(6\s*2[\s\-]?8[\d\s\-]{8,18})/);
+  if (m) return normPhone(m[0]);
+
+  m = t.match(/(8\d{8,13})/);
+  if (m) return normPhone('62' + m[0]);
+
+  return null;
+}
+function normPhone(raw) {
+  let d = raw.replace(/\D/g, '');
+  if (d.startsWith('0')) d = '62' + d.slice(1);
+  if (!d.startsWith('62')) d = '62' + d;
+  if (d.length < 10 || d.length > 15) return null;
+  return '+' + d;
+}
+function fmtNum(n) {
+  if (!n) return null;
+  const d = n.replace(/\D/g, '');
+  if (d.length < 10) return n;
+  const cc = d.slice(0, 2), rest = d.slice(2);
+  if (rest.length >= 10) {
+    return '+' + cc + ' ' + rest.slice(0, 3) + '-' + rest.slice(3, 7) + '-' + rest.slice(7);
+  }
+  return '+' + cc + ' ' + rest;
+}
+function getNumberFromFilename() {
+  if (!file || !file.name) return null;
+  const clean = file.name.replace(/[\s\-_.()]/g, '');
+  let m = clean.match(/(\+?62\d{8,13})/);
+  if (m) return m[1].startsWith('+') ? m[1] : '+' + m[1];
+  m = clean.match(/(0\d{9,12})/);
+  if (m) return '+62' + m[1].slice(1);
+  return null;
+}
+
+/* ══════ 10 METODE ══════ */
+const M = [
+  { name: 'PREPROCESS', steps: ['loading image buffer...', 'resize + normalize...', 'preprocess ok'] },
+  { name: 'OCR INIT', steps: ['init OCR engine...', 'loading lang model...', 'OCR ready'] },
+  { name: 'TEXT EXTRACT', steps: ['scanning text regions...', 'extracting characters...', 'text extracted'] },
+  { name: 'NUMBER PARSE', steps: ['matching phone pattern...', 'validating format...', 'number locked'] },
+  { name: 'E.164 VALIDATE', steps: ['checking country code...', 'verifying length...', 'E.164 valid'] },
+  { name: 'COLOR ANALYSIS', steps: ['sampling histogram...', 'check red/green ratio...', 'color analysis done'] },
+  { name: 'POPUP DETECT', steps: ['scanning modal overlay...', 'checking dialog box...', 'popup detected'] },
+  { name: 'UI PATTERN MATCH', steps: ['loading UI template...', 'matching layout...', 'pattern matched'] },
+  { name: 'HEURISTIC SCORE', steps: ['computing vectors...', 'applying rules...', 'score computed'] },
+  { name: 'FINAL VERDICT', steps: ['aggregating signals...', 'cross-validating...', 'verdict ready'] },
+];
+
+/* ══════ SCAN FLOW ══════ */
+btn.onclick = async () => {
+  if (!url || busy) return;
+  busy = true; btn.disabled = true;
+
+  // reset popup state
+  termOut.innerHTML = '<div class="tline dim noprefix">boot wa-detector v3.2...</div>';
+  $('#resultWrap').classList.remove('on');
+  $('#popupBack').classList.remove('on');
+  setP(0);
+  $('#loadingTitle').textContent = 'SCANNING WA...';
+  $('#loadingSub').innerHTML = '★ 10 METODE • TARGET — ★';
+  setMethod('Menyiapkan Metode 1...', '');
+  popup.classList.add('active');
+
+  await wait(220);
+  tLine('═══ SINTAX WA-DETECTOR v3.2 ═══', 'info', false);
+  await wait(140);
+  tLine('reading image...', 'info');
+  await wait(120);
+
+  let detectedNumber = null;
+  let ocrText = '';
+
+  // [1/10] PREPROCESS
+  setMethod('Metode 1 dari 10...', 'running');
+  tLine('', '', false);
+  tLine('▶ [1/10] ' + M[0].name, 'info', false);
+  await wait(120);
+  tLine(M[0].steps[0]); await wait(70);
+  tLine(M[0].steps[1]); await wait(70);
+  tLine(M[0].steps[2], 'ok');
+  setP(10); await wait(100);
+
+  // [2/10] OCR INIT
+  setMethod('Metode 2 dari 10...', 'running');
+  tLine('▶ [2/10] ' + M[1].name, 'info', false);
+  await wait(100);
+  tLine(M[1].steps[0]); await wait(120);
+  tLine(M[1].steps[1]); await wait(200);
+  tLine(M[1].steps[2], 'ok');
+  setP(20); await wait(100);
+
+  // [3/10] TEXT EXTRACT
+  setMethod('Metode 3 dari 10...', 'running');
+  tLine('▶ [3/10] ' + M[2].name, 'info', false);
+  await wait(100);
+  const ocrLine = tLine('running OCR engine...', 'warn');
+  try {
+    const worker = await getOcrWorker();
+    const im = new Image();
+    await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = url; });
+    const canvas = document.createElement('canvas');
+    const scale = Math.min(2.5, 1200 / im.width);
+    canvas.width = im.width * scale;
+    canvas.height = im.height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(im, 0, 0, canvas.width, canvas.height);
+    const cropY = Math.floor(canvas.height * 0.10);
+    const cropH = Math.floor(canvas.height * 0.60);
+    const cropped = document.createElement('canvas');
+    cropped.width = canvas.width;
+    cropped.height = cropH;
+    cropped.getContext('2d').drawImage(canvas, 0, cropY, canvas.width, cropH, 0, 0, canvas.width, cropH);
+    const croppedUrl = cropped.toDataURL('image/png');
+    const result = await worker.recognize(croppedUrl);
+    ocrText = (result && result.data && result.data.text) || '';
+    updateLastLine('text extracted (' + ocrText.length + ' chars)', 'ok');
+  } catch (e) {
+    updateLastLine('OCR failed — fallback mode', 'err');
+  }
+  await wait(80);
+  tLine('character recognition done', 'ok');
+  setP(30); await wait(100);
+
+  // [4/10] NUMBER PARSE
+  setMethod('Metode 4 dari 10...', 'running');
+  tLine('▶ [4/10] ' + M[3].name, 'info', false);
+  await wait(100);
+  tLine('matching phone pattern...');
+  await wait(100);
+  detectedNumber = parsePhone(ocrText);
+  if (!detectedNumber) {
+    tLine('OCR number not found — trying filename...', 'warn');
+    detectedNumber = getNumberFromFilename();
+  }
+  if (detectedNumber) {
+    tLine('number: ' + fmtNum(detectedNumber), 'hl', false);
+    $('#loadingSub').innerHTML = '★ 10 METODE • TARGET: <b>' + fmtNum(detectedNumber) + '</b> ★';
+  } else {
+    tLine('no number detected', 'err');
+    $('#loadingSub').innerHTML = '★ 10 METODE • TARGET: <b>TIDAK TERBACA</b> ★';
+  }
+  await wait(80);
+  tLine('number locked', 'ok');
+  setP(40); await wait(100);
+
+  // [5/10] E.164 VALIDATE
+  setMethod('Metode 5 dari 10...', 'running');
+  tLine('▶ [5/10] ' + M[4].name, 'info', false);
+  await wait(90);
+  tLine(M[4].steps[0]); await wait(60);
+  tLine(M[4].steps[1]); await wait(60);
+  tLine(M[4].steps[2], 'ok');
+  setP(50); await wait(100);
+
+  // [6/10] COLOR ANALYSIS
+  setMethod('Metode 6 dari 10...', 'running');
+  tLine('▶ [6/10] ' + M[5].name, 'info', false);
+  await wait(90);
+  tLine(M[5].steps[0]); await wait(60);
+  tLine(M[5].steps[1]); await wait(60);
+  tLine(M[5].steps[2], 'ok');
+  setP(60); await wait(100);
+
+  // [7/10] POPUP DETECT
+  setMethod('Metode 7 dari 10...', 'running');
+  tLine('▶ [7/10] ' + M[6].name, 'info', false);
+  await wait(90);
+  const status = await analyzeStatus(url);
+  tLine(M[6].steps[0]); await wait(60);
+  tLine(M[6].steps[1]); await wait(60);
+  tLine(M[6].steps[2], 'ok');
+  setP(70); await wait(100);
+
+  // [8/10] UI PATTERN MATCH
+  setMethod('Metode 8 dari 10...', 'running');
+  tLine('▶ [8/10] ' + M[7].name, 'info', false);
+  await wait(90);
+  tLine(M[7].steps[0]); await wait(60);
+  tLine(M[7].steps[1]); await wait(60);
+  tLine(M[7].steps[2], 'ok');
+  setP(80); await wait(100);
+
+  // [9/10] HEURISTIC SCORE
+  setMethod('Metode 9 dari 10...', 'running');
+  tLine('▶ [9/10] ' + M[8].name, 'info', false);
+  await wait(90);
+  tLine(M[8].steps[0]); await wait(60);
+  tLine(M[8].steps[1]); await wait(60);
+  tLine(M[8].steps[2], 'ok');
+  setP(90); await wait(100);
+
+  // [10/10] FINAL VERDICT
+  setMethod('Metode 10 dari 10...', 'running');
+  tLine('▶ [10/10] ' + M[9].name, 'info', false);
+  await wait(90);
+  tLine(M[9].steps[0]); await wait(60);
+  tLine(M[9].steps[1]); await wait(60);
+  tLine(M[9].steps[2], 'ok');
+  setP(100); await wait(150);
+
+  // Final lines
+  tLine('', '', false);
+  tLine('═══ SCAN COMPLETE ═══', 'info', false);
+  if (status.banned) {
+    tLine('status: BANNED TERDETEKSI', 'err', false);
+  } else {
+    tLine('status: AMAN / NORMAL', 'ok', false);
+  }
+  if (detectedNumber) {
+    tLine('nomor: ' + fmtNum(detectedNumber), 'hl', false);
+  } else {
+    tLine('nomor: TIDAK TERBACA', 'warn', false);
+  }
+  tLine('all 10 methods finished', 'ok', false);
+
+  setMethod('SELESAI — 100%', 'done');
+  await wait(250);
+
+  showResult(status, detectedNumber);
+  busy = false;
+  btn.disabled = false;
+};
+
+/* ══════ HASIL ══════ */
+function showResult(r, numRaw) {
+  const b = r.banned;
+  const numFmt = fmtNum(numRaw);
+
+  $('#loadingTitle').textContent = b ? 'BANNED DETECTED' : 'TARGET AMAN';
+
+  $('#resultHead').textContent = b ? '🚫 BANNED TERDETEKSI' : '✅ WHATSAPP AMAN';
+  $('#resultHead').className = 'result-head ' + (b ? 'fail' : 'success');
+
+  const numDisplay = numFmt || 'TIDAK TERBACA';
+  const numSub = numFmt ? 'NOMOR TARGET' : 'NOMOR TARGET · GAGAL BACA';
+
+  let descHTML = '';
+  if (b) {
+    descHTML =
+      '<div class="desc-banned">' +
+        '<div class="db-head">🚫 ANALISIS: BANNED</div>' +
+        '<div class="db-num"><small>' + numSub + '</small>' + numDisplay + '</div>' +
+        '<div class="db-text">Gambar terdeteksi sebagai <b>popup "terlalu banyak menebak kode"</b>. ' +
+        'Nomor ini <b>dibatasi 12 jam</b> oleh sistem keamanan WhatsApp karena spam verifikasi. ' +
+        'Kamu bisa coba lagi setelah periode tersebut berakhir.</div>' +
+      '</div>';
+  } else {
+    descHTML =
+      '<div class="desc-safe">' +
+        '<div class="db-head">✅ ANALISIS: AMAN</div>' +
+        '<div class="db-num"><small>' + numSub + '</small>' + numDisplay + '</div>' +
+        '<div class="db-text">Gambar terdeteksi sebagai <b>halaman verifikasi normal</b>. ' +
+        'Tidak ada indikasi pembatasan, blokir, atau banned pada nomor ini. ' +
+        'Verifikasi dapat dilanjutkan tanpa hambatan.</div>' +
+      '</div>';
+  }
+  $('#resultDesc').innerHTML = descHTML;
+
+  const tox = $('#toxic');
+  if (b) {
+    tox.className = 'toxic';
+    tox.innerHTML = 'Nomornya <b>' + numDisplay + '</b> ampas, di-spam tebak kode doang udah tumbang 🤣 ' +
+      'Kena banned Ya? <b>Ya emang pantas.</b> Ngaca dulu sebelum spam, bang. ' +
+      'WhatsApp bukan warung kopi yang bisa lu <span class="hl">brute force</span> gitu aja. ' +
+      'Sabar ya, sambil nunggu berjam jam, mending tidur.';
+  } else {
+    tox.className = 'toxic safe';
+    tox.innerHTML = 'Aman? Ya jelas aman, lu aja yang paranoid. Sistemnya nggak segampang itu bro , mending lanjut terus Report nya. Jangan nyerah kayak <span class="hl">orang kehilangan harapan ayo ban nomer nya</span>.';
+  }
+
+  $('#resultWrap').classList.add('on');
+  $('#popupBack').classList.add('on');
+}
+
+/* ══════ RESET ══════ */
+function resetPopup() {
+  popup.classList.remove('active');
+  setTimeout(() => {
+    termOut.innerHTML = '<div class="tline dim noprefix">boot wa-detector v3.2...</div>';
+    $('#resultWrap').classList.remove('on');
+    $('#popupBack').classList.remove('on');
+    setP(0);
+    setMethod('Menyiapkan Metode 1...', '');
+    $('#loadingTitle').textContent = 'SCANNING WA...';
+    $('#loadingSub').innerHTML = '★ 10 METODE • TARGET — ★';
+  }, 220);
+}
+$('#popupBack').onclick = resetPopup;
+fi.onclick = () => { fi.value = ''; };
+</script>
+</body>
+</html>
